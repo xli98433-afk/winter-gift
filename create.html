@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070d">
+<title>做一棵圣诞树</title>
+<meta name="description" content="上传照片，写一句话，生成属于你们的圣诞树。">
+<link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/npm/@fontsource/zhi-mang-xing@5.0.0/index.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎄</text></svg>">
+<style>
+  :root {
+    --gold: #f4d089;
+    --gold-soft: rgba(244, 208, 137, 0.55);
+    --ink: #f7f1e3;
+    --bg: #05070d;
+    --panel: rgba(255, 255, 255, 0.045);
+    --line: rgba(244, 208, 137, 0.18);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+    background:
+      radial-gradient(80% 50% at 50% 0%, #151019 0%, transparent 60%),
+      radial-gradient(60% 40% at 50% 100%, #0d1018 0%, transparent 70%),
+      var(--bg);
+    padding: 28px 18px calc(110px + var(--safe-b));
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 26px; }
+  header h1 {
+    margin: 0; font-family: Georgia, "Songti SC", serif; font-weight: 400;
+    font-size: clamp(21px, 5.4vw, 30px); letter-spacing: 0.18em; color: var(--gold);
+    text-shadow: 0 0 26px rgba(244,208,137,0.4);
+  }
+  header p { margin: 10px 0 0; font-size: 12px; letter-spacing: 0.14em; color: rgba(247,241,227,0.45); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; margin-bottom: 14px; backdrop-filter: blur(8px);
+  }
+  .panel h2 {
+    margin: 0 0 14px; font-size: 12px; font-weight: 400; letter-spacing: 0.22em;
+    color: var(--gold-soft);
+  }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field span { font-size: 11px; letter-spacing: 0.1em; color: rgba(247,241,227,0.55); }
+  input[type="text"], textarea {
+    width: 100%; padding: 10px 12px; border-radius: 9px;
+    border: 1px solid rgba(247,241,227,0.16); background: rgba(0,0,0,0.28);
+    color: var(--ink); font-family: inherit; font-size: 14px; outline: none;
+    transition: border-color 0.25s;
+  }
+  input[type="text"]:focus, textarea:focus { border-color: var(--gold-soft); }
+  textarea { resize: vertical; min-height: 64px; line-height: 1.6; }
+  .photos-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .photos-head em { font-style: normal; font-size: 11px; color: rgba(247,241,227,0.4); }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 12px 0; }
+  .photo {
+    border: 1px solid rgba(247,241,227,0.12); border-radius: 12px; overflow: hidden;
+    background: rgba(0,0,0,0.25);
+  }
+  .thumb {
+    aspect-ratio: 1 / 1; background-size: cover; background-position: center;
+    background-color: #111;
+  }
+  .caption {
+    width: 100%; border: none; border-top: 1px solid rgba(247,241,227,0.08);
+    background: transparent; color: var(--ink); padding: 8px 9px; font-size: 12px; outline: none;
+  }
+  .tools { display: flex; justify-content: flex-end; gap: 4px; padding: 4px 6px 6px; }
+  .tools button {
+    width: 26px; height: 26px; border-radius: 7px; cursor: pointer;
+    border: 1px solid rgba(247,241,227,0.14); background: rgba(255,255,255,0.04);
+    color: rgba(247,241,227,0.7); font-size: 12px; line-height: 1;
+  }
+  .tools button:hover { border-color: var(--gold-soft); color: var(--gold); }
+  .add-row { display: flex; gap: 10px; }
+  .add-btn {
+    flex: 1; padding: 12px; cursor: pointer; border-radius: 10px;
+    border: 1px dashed rgba(244,208,137,0.4); background: rgba(244,208,137,0.05);
+    color: var(--gold); font-family: inherit; font-size: 12px; letter-spacing: 0.16em;
+  }
+  .add-btn:hover { background: rgba(244,208,137,0.1); }
+  .actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    padding: 12px 18px calc(12px + var(--safe-b));
+    display: flex; gap: 10px; justify-content: center;
+    background: linear-gradient(180deg, transparent, rgba(5,7,13,0.92) 30%);
+  }
+  .actions .wrap2 { width: min(780px, 100%); display: flex; gap: 10px; }
+  .btn {
+    flex: 1; padding: 13px 16px; border-radius: 12px; cursor: pointer;
+    font-family: inherit; font-size: 13px; letter-spacing: 0.14em;
+    transition: transform 0.15s, box-shadow 0.25s, background 0.25s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn.ghost {
+    border: 1px solid rgba(247,241,227,0.2); background: rgba(255,255,255,0.05); color: var(--ink);
+  }
+  .btn.primary {
+    border: 1px solid var(--gold-soft); background: rgba(244,208,137,0.14); color: var(--gold);
+    box-shadow: 0 0 26px rgba(244,208,137,0.12);
+  }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+  #toast {
+    position: fixed; left: 50%; bottom: calc(96px + var(--safe-b)); z-index: 8;
+    transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
+    padding: 10px 18px; border-radius: 999px; max-width: 84vw; text-align: center;
+    background: rgba(14,13,16,0.94); border: 1px solid rgba(247,241,227,0.14);
+    font-size: 12px; letter-spacing: 0.05em; transition: opacity 0.3s, transform 0.3s;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .modal {
+    position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+    background: rgba(2,2,5,0.9); backdrop-filter: blur(8px); padding: 24px;
+  }
+  .modal.hidden { display: none; }
+  .modal-card {
+    width: min(520px, 100%); border: 1px solid var(--line); border-radius: 16px;
+    background: #0a0d14; padding: 22px;
+  }
+  .modal-card h2 { margin: 0 0 14px; font-size: 16px; font-weight: 400; letter-spacing: 0.1em; color: var(--gold); }
+  .modal-card input { width: 100%; }
+  .modal-actions { display: flex; gap: 10px; margin: 12px 0; }
+  .modal-actions .btn { flex: 1; padding: 10px; font-size: 12px; text-align: center; text-decoration: none; }
+  .modal-note { margin: 10px 0 0; font-size: 11px; line-height: 1.7; color: rgba(247,241,227,0.45); }
+  .qr {
+    display: grid; place-items: center; width: max-content; margin: 14px auto 4px;
+    padding: 9px; border-radius: 10px; background: #ffffff;
+  }
+  .qr img, .qr canvas { display: block; }
+  .close-result { margin-top: 8px; width: 100%; padding: 10px; border-radius: 10px; cursor: pointer;
+    border: 1px solid rgba(247,241,227,0.16); background: transparent; color: rgba(247,241,227,0.7);
+    font-family: inherit; font-size: 12px; }
+  @media (min-width: 640px) {
+    .grid { grid-template-columns: repeat(4, 1fr); }
+    .fields { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>做一棵圣诞树</h1>
+    <p>上传照片 · 写一句话 · 生成专属链接</p>
+  </header>
+
+  <section class="panel">
+    <h2>给谁的</h2>
+    <div class="fields">
+      <label class="field"><span>收件人称呼</span><input id="to" type="text" maxlength="12" placeholder="她的小名"></label>
+      <label class="field"><span>署名</span><input id="from" type="text" maxlength="16" placeholder="你的名字"></label>
+      <label class="field"><span>日期</span><input id="date" type="text" maxlength="20" value="2026.12.25"></label>
+      <label class="field"><span>一句留言（可选）</span><input id="message" type="text" maxlength="40" placeholder="写一句想说的话"></label>
+      <label class="field full"><span>访问码（可选，4–20 位）</span><input id="password" type="text" maxlength="20" placeholder="留空则拿到链接即可打开"></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="photos-head"><h2 style="margin:0">照片</h2><em id="count">0 / 12</em></div>
+    <div id="grid" class="grid"></div>
+    <div class="add-row">
+      <button id="addPhotos" class="add-btn">+ 添加照片</button>
+    </div>
+    <input id="photoInput" type="file" accept="image/*" multiple hidden>
+  </section>
+</div>
+
+<div class="actions">
+  <div class="wrap2">
+    <button id="previewBtn" class="btn ghost">预览效果</button>
+    <button id="publishBtn" class="btn primary">生成链接</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="result" class="modal hidden">
+  <div class="modal-card">
+    <h2>礼物链接已生成</h2>
+    <input id="resultUrl" type="text" readonly>
+    <div class="modal-actions">
+      <button id="copyBtn" class="btn ghost">复制链接</button>
+      <a id="openBtn" class="btn primary" target="_blank" rel="noopener">打开看看</a>
+    </div>
+    <div id="qrcode" class="qr"></div>
+    <p class="modal-note" id="resultNote"></p>
+    <button id="closeResult" class="close-result">关闭</button>
+  </div>
+</div>
+
+<script src="./lib/qrcode.min.js"></script>
+<script type="module" src="./js/editor.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+name = "winter-gift"
+compatibility_date = "2026-11-14"
+pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "GIFTS"
+id = "7483fe7581be42fa91b2cc4d9da5f995"
