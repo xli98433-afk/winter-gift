@@ -673,7 +673,7 @@ function applyCaption(progress) {
   for (let i = 0; i < set.count; i++) {
     const i3 = i * 3;
     const local = Math.min(1, Math.max(0, (progress - set.delays[i] * 0.3) / 0.7));
-    const eased = local * local * (3 - 2 * local);
+    const eased = 1 - Math.pow(1 - local, 5);
     array[i3] = set.sources[i3] + (set.targets[i3] - set.sources[i3]) * eased;
     array[i3 + 1] = set.sources[i3 + 1] + (set.targets[i3 + 1] - set.sources[i3 + 1]) * eased;
     array[i3 + 2] = set.sources[i3 + 2] + (set.targets[i3 + 2] - set.sources[i3 + 2]) * eased;
@@ -904,9 +904,9 @@ function setMode(mode) {
 function updateHint() {
   const gestures = !!camStream;
   let text = "";
-  if (app.mode === "focus") text = gestures ? "捏合或点击任意处返回" : "点击任意处返回";
-  else if (app.mode === "galaxy") text = gestures ? "张开手掌环绕 · 捏合放大 · 握拳收回" : "拖拽旋转 · 点击照片放大";
-  else text = gestures ? "张开手掌散开 · 握拳收回 · 捏合放大" : "点击空白处散开 · 点击照片查看";
+  if (app.mode === "focus") text = "点击任意处返回";
+  else if (app.mode === "galaxy") text = gestures ? "张开手掌环绕 · 握拳收回 · 点击照片放大" : "拖拽旋转 · 点击照片放大";
+  else text = gestures ? "张开手掌散开 · 握拳收回" : "点击空白处散开 · 点击照片查看";
   $("hint").textContent = text;
 }
 
@@ -984,8 +984,8 @@ function updateTransforms(dt) {
   const idle = app.mode === "tree";
   for (let i = 0; i < particles.count; i++) {
     const i3 = i * 3;
-    const local = Math.min(1, Math.max(0, (progress - particles.delays[i] * 0.5) / 0.62));
-    const eased = local * local * (3 - 2 * local);
+    const local = Math.min(1, Math.max(0, (progress - particles.delays[i] * 0.15) / 0.85));
+    const eased = 1 - Math.pow(1 - local, 5);
     const breathe = idle ? Math.sin(time * particles.speeds[i] + particles.phases[i]) * 0.02 : 0;
     let x = particles.tree[i3] + (particles.galaxy[i3] - particles.tree[i3]) * eased;
     let y = particles.tree[i3 + 1] + (particles.galaxy[i3 + 1] - particles.tree[i3 + 1]) * eased + breathe;
@@ -1001,8 +1001,8 @@ function updateTransforms(dt) {
   const sparkPos = sparkleSystem.geometry.attributes.position.array;
   for (let i = 0; i < spark.count; i++) {
     const i3 = i * 3;
-    const local = Math.min(1, Math.max(0, (progress - spark.delays[i] * 0.5) / 0.62));
-    const eased = local * local * (3 - 2 * local);
+    const local = Math.min(1, Math.max(0, (progress - spark.delays[i] * 0.15) / 0.85));
+    const eased = 1 - Math.pow(1 - local, 5);
     const source = Math.floor(i * (COUNT.particles / spark.count)) % COUNT.particles;
     let x = spark.tree[source * 3] + (spark.galaxy[source * 3] - spark.tree[source * 3]) * eased;
     let y = spark.tree[source * 3 + 1] + (spark.galaxy[source * 3 + 1] - spark.tree[source * 3 + 1]) * eased;
@@ -1018,8 +1018,8 @@ function updateTransforms(dt) {
   const dummy = ornament.dummy;
   for (let i = 0; i < ornament.data.length; i++) {
     const item = ornament.data[i];
-    const local = Math.min(1, Math.max(0, (progress - item.delay * 0.4) / 0.65));
-    const eased = local * local * (3 - 2 * local);
+    const local = Math.min(1, Math.max(0, (progress - item.delay * 0.15) / 0.85));
+    const eased = 1 - Math.pow(1 - local, 5);
     const x = item.treePos[0] + (item.galaxyPos[0] - item.treePos[0]) * eased;
     const y = item.treePos[1] + (item.galaxyPos[1] - item.treePos[1]) * eased;
     const z = item.treePos[2] + (item.galaxyPos[2] - item.treePos[2]) * eased;
@@ -1036,8 +1036,8 @@ function updateTransforms(dt) {
   const giftDummy = gift.dummy;
   for (let i = 0; i < gift.data.length; i++) {
     const item = gift.data[i];
-    const local = Math.min(1, Math.max(0, (progress - item.delay * 0.4) / 0.65));
-    const eased = local * local * (3 - 2 * local);
+    const local = Math.min(1, Math.max(0, (progress - item.delay * 0.15) / 0.85));
+    const eased = 1 - Math.pow(1 - local, 5);
     const x = item.treePos[0] + (item.galaxyPos[0] - item.treePos[0]) * eased;
     const y = item.treePos[1] + (item.galaxyPos[1] - item.treePos[1]) * eased;
     const z = item.treePos[2] + (item.galaxyPos[2] - item.treePos[2]) * eased;
@@ -1062,8 +1062,8 @@ function updateTransforms(dt) {
   const ribbon = ribbonSystem.userData;
   for (let i = 0; i < ribbon.data.length; i++) {
     const item = ribbon.data[i];
-    const local = Math.min(1, Math.max(0, (progress - item.delay * 0.5) / 0.6));
-    const eased = local * local * (3 - 2 * local);
+    const local = Math.min(1, Math.max(0, (progress - item.delay * 0.2) / 0.8));
+    const eased = 1 - Math.pow(1 - local, 5);
     ribbon.dummy.position.set(
       item.treePos[0] + (item.galaxyPos[0] - item.treePos[0]) * eased,
       item.treePos[1] + (item.galaxyPos[1] - item.treePos[1]) * eased,
@@ -1166,7 +1166,7 @@ function loop(now) {
   app.time += dt;
 
   if (app.mode === "tree") {
-    app.progress = Math.max(0, app.progress - dt / 1.4);
+    app.progress = Math.max(0, app.progress - dt / 2.0);
   } else {
     app.progress = Math.min(1, app.progress + dt / 2.0);
   }
@@ -1477,13 +1477,11 @@ async function startGestures() {
   const hands = new window.Hands({ locateFile: file => `${base}/${file}` });
   hands.setOptions({
     maxNumHands: 1,
-    modelComplexity: LOW_POWER ? 0 : 1,
-    minDetectionConfidence: 0.55,
-    minTrackingConfidence: 0.45
+    modelComplexity: 1,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
   });
-  let candidate = "none";
-  let candidateSince = 0;
-  let lastFired = 0;
+  let gestureState = "closed";
   hands.onResults(results => {
     const marks = results.multiHandLandmarks;
     if (!marks || !marks.length) {
@@ -1495,34 +1493,15 @@ async function startGestures() {
     const lm = marks[0];
     hand.x = 1 - lm[9].x;
     hand.y = lm[9].y;
-    const spread = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y, lm[a].z - lm[b].z);
-    const pinch = spread(4, 8);
-    const extended = [8, 12, 16, 20].filter((tip, index) => lm[tip].y < lm[[5, 9, 13, 17][index]].y).length;
-    let gesture = "none";
-    if (pinch < 0.055) gesture = "pinch";
-    else if (extended >= 3) gesture = "open";
-    else if (extended <= 1) gesture = "fist";
-    const now = performance.now();
-    if (gesture !== candidate) {
-      candidate = gesture;
-      candidateSince = now;
-    }
-    if (gesture !== "none" && now - candidateSince > 180 && now - lastFired > 900) {
-      lastFired = now;
+    const spread = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
+    const gesture = spread > 0.28 ? "open" : "closed";
+    if (gesture !== gestureState) {
+      gestureState = gesture;
       if (gesture === "open" && app.mode === "tree") setMode("galaxy");
-      else if (gesture === "fist" && app.mode !== "tree") setMode("tree");
-      else if (gesture === "pinch") {
-        if (app.mode === "galaxy") {
-          const total = photoSystem ? photoSystem.cards.length : COUNT.photos;
-          const index = Math.floor(Math.random() * total);
-          focusPhoto(index);
-        } else if (app.mode === "focus") {
-          clearFocus();
-        }
-      }
+      else if (gesture === "closed" && app.mode !== "tree") setMode("tree");
     }
-    const labels = { open: "张开手掌", fist: "握拳", pinch: "捏合", none: "识别中" };
-    state.textContent = "手势已开启 · " + (labels[gesture] || "");
+    const labels = { open: "张开手掌", closed: "握拳" };
+    state.textContent = "手势已开启 · " + labels[gesture];
   });
   handsInstance = hands;
   const processFrame = async () => {
