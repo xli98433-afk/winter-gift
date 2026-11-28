@@ -29,7 +29,7 @@ const PALETTE = [0xffcf7a, 0xffcf7a, 0xffe2a6, 0xffd88a, 0xffc35c, 0xfff6e2, 0xf
 const ORNAMENT_COLORS = [0xd62b3f, 0x1f8f45, 0xffd34d, 0xfff4dc, 0xc8203a, 0x39a05a];
 const BOX_COLORS = [0xb81f33, 0x1c7a3c, 0xd9a521, 0xa82438];
 
-const CAPTION_FONT = '"Zhi Mang Xing", "Ma Shan Zheng", "KaiTi", "STKaiti", "Kaiti SC", Georgia, serif';
+const CAPTION_FONT = '"Segoe Script", "Comic Sans MS", "Snell Roundhand", "Brush Script MT", "KaiTi", "STKaiti", "Kaiti SC", cursive';
 
 const GIFT = {
   to: "",
@@ -533,13 +533,13 @@ function makeCaptionSet(text) {
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  if ("letterSpacing" in ctx) ctx.letterSpacing = "4px";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "2px";
   let fontSize = 72;
-  ctx.font = '400 ' + fontSize + 'px ' + CAPTION_FONT;
+  ctx.font = 'italic 700 ' + fontSize + 'px ' + CAPTION_FONT;
   const measured = ctx.measureText(text).width;
   if (measured > 1450) {
     fontSize = Math.floor(fontSize * 1450 / measured);
-    ctx.font = '400 ' + fontSize + 'px ' + CAPTION_FONT;
+    ctx.font = 'italic 700 ' + fontSize + 'px ' + CAPTION_FONT;
   }
   ctx.fillText(text, 800, 150);
 
@@ -640,16 +640,6 @@ function rebuildCaptions() {
     captionProgress = keepProgress;
     applyCaption(captionProgress);
   }
-}
-
-async function loadCaptionFont() {
-  if (!document.fonts || !document.fonts.load) return;
-  const text = CAPTIONS.join("");
-  try {
-    await document.fonts.load('72px "Zhi Mang Xing"', text);
-    const ready = document.fonts.check('72px "Zhi Mang Xing"', text);
-    if (ready) rebuildCaptions();
-  } catch (error) {}
 }
 
 function activateCaption(index, instant) {
@@ -904,8 +894,8 @@ function setMode(mode) {
 function updateHint() {
   const gestures = !!camStream;
   let text = "";
-  if (app.mode === "focus") text = "点击任意处返回";
-  else if (app.mode === "galaxy") text = gestures ? "张开手掌环绕 · 握拳收回 · 点击照片放大" : "拖拽旋转 · 点击照片放大";
+  if (app.mode === "focus") text = gestures ? "捏合或点击任意处返回" : "点击任意处返回";
+  else if (app.mode === "galaxy") text = gestures ? "张开手掌环绕 · 捏合看照片 · 握拳收回" : "拖拽旋转 · 点击照片放大";
   else text = gestures ? "张开手掌散开 · 握拳收回" : "点击空白处散开 · 点击照片查看";
   $("hint").textContent = text;
 }
@@ -1166,7 +1156,7 @@ function loop(now) {
   app.time += dt;
 
   if (app.mode === "tree") {
-    app.progress = Math.max(0, app.progress - dt / 2.0);
+    app.progress = Math.max(0, app.progress - dt / 1.0);
   } else {
     app.progress = Math.min(1, app.progress + dt / 2.0);
   }
@@ -1494,11 +1484,27 @@ async function startGestures() {
     hand.x = 1 - lm[9].x;
     hand.y = lm[9].y;
     const spread = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
+    if (spread < 0.06) {
+      if (gestureState !== "pinch") {
+        gestureState = "pinch";
+        if (app.mode === "galaxy") {
+          const total = photoSystem ? photoSystem.cards.length : COUNT.photos;
+          focusPhoto(Math.floor(Math.random() * total));
+        } else if (app.mode === "focus") {
+          clearFocus();
+        }
+      }
+      state.textContent = "手势已开启 · 捏合";
+      return;
+    }
     const gesture = spread > 0.28 ? "open" : "closed";
     if (gesture !== gestureState) {
       gestureState = gesture;
       if (gesture === "open" && app.mode === "tree") setMode("galaxy");
-      else if (gesture === "closed" && app.mode !== "tree") setMode("tree");
+      else if (gesture === "closed") {
+        if (app.mode === "focus") clearFocus();
+        else if (app.mode !== "tree") setMode("tree");
+      }
     }
     const labels = { open: "张开手掌", closed: "握拳" };
     state.textContent = "手势已开启 · " + labels[gesture];
@@ -1531,4 +1537,3 @@ function stopGestures() {
 await loadGift();
 try { buildAll(); } catch (error) { const loader = document.getElementById('loader'); loader.querySelector('p').textContent = '浏览器不支持 WebGL，换一个浏览器试试'; console.error(error); }
 updateHint();
-loadCaptionFont();

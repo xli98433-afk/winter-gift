@@ -21,10 +21,10 @@
 ## 功能
 
 - **3D 粒子圣诞树**：暖金灯光、红绿彩球、礼物盒、树顶星，Bloom 泛光与暗角。
-- **手势交互**：MediaPipe Hands 识别张开 / 握拳，阈值与过渡参考早期版本；没有摄像头时可用点击与拖拽。
+- **手势交互**：MediaPipe Hands 识别张开 / 握拳 / 捏合；捏合可打开照片，没有摄像头时可用点击与拖拽。
 - **绽放式散开**：点击后粒子平滑向四周绽开，整屏铺开。
 - **照片**：上传后自动压缩；树上是挂饰，散开后飞成星云；点击照片进入特写。
-- **每张照片一句文案**：特写时由粒子以艺术字（Zhi Mang Xing 行书）汇聚在照片上方。
+- **每张照片一句文案**：特写时由粒子以参考版的手写艺术字（Segoe Script / Comic Sans，中文回退楷体）汇聚在照片上方。
 - **个性化链接**：收件人称呼、署名、日期、留言；链接形如 `/?g=<12位ID>`。
 - **二维码**：生成链接时同步生成二维码，方便当面扫。
 - **动态分享卡片**：`/?g=<id>` 由服务端输出动态标题、描述和 OG 图；未加密礼物会使用浏览器生成的专属 1200×630 分享图。
@@ -49,7 +49,7 @@
 - **前端**：原生 ES Modules，无构建步骤
 - **后端**：Cloudflare Pages Functions
 - **存储**：Workers KV（默认）；可选 Cloudflare R2 存照片
-- **字体**：Zhi Mang Xing（Fontsource，按需子集加载）
+- **字体**：手写体 Segoe Script / Comic Sans + 楷体回退；编辑器分享图使用 Zhi Mang Xing
 - **个人版托管**：GitHub Pages
 
 ## 目录结构
@@ -139,7 +139,7 @@ bucket_name = "winter-gift-photos"
 - [Three.js](https://threejs.org/)（MIT）
 - [MediaPipe](https://developers.google.com/mediapipe)（Apache-2.0）
 - [qrcodejs](https://github.com/davidshimjs/qrcodejs)（MIT）
-- Zhi Mang Xing 通过 [Fontsource](https://fontsource.org/) 加载；字体遵循 SIL Open Font License。
+- 编辑器分享图使用的 Zhi Mang Xing 通过 [Fontsource](https://fontsource.org/) 加载，遵循 SIL Open Font License。
 
 ---
 
