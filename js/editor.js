@@ -3,8 +3,6 @@ let maxEdge = 1280;
 const QUALITY = 0.82;
 
 const $ = id => document.getElementById(id);
-const toInput = $("to");
-const fromInput = $("from");
 const dateInput = $("date");
 const messageInput = $("message");
 const passwordInput = $("password");
@@ -31,8 +29,6 @@ function toast(text) {
 
 function payload() {
   return {
-    to: toInput.value.trim(),
-    from: fromInput.value.trim(),
     date: dateInput.value.trim() || "2026.12.25",
     message: messageInput.value.trim(),
     password: passwordInput.value.trim(),
@@ -131,8 +127,6 @@ function move(index, delta) {
 function saveMeta() {
   try {
     localStorage.setItem("gift-meta", JSON.stringify({
-      to: toInput.value,
-      from: fromInput.value,
       date: dateInput.value,
       message: messageInput.value
     }));
@@ -143,8 +137,6 @@ function loadMeta() {
   try {
     const meta = JSON.parse(localStorage.getItem("gift-meta") || "null");
     if (!meta) return;
-    if (meta.to) toInput.value = meta.to;
-    if (meta.from) fromInput.value = meta.from;
     if (meta.date) dateInput.value = meta.date;
     if (meta.message) messageInput.value = meta.message;
   } catch (error) {}
@@ -253,17 +245,12 @@ async function makeOgImage() {
   try { await document.fonts.load('400 86px "Zhi Mang Xing"', "给"); } catch (error) {}
   ctx.font = '400 86px "Zhi Mang Xing", "KaiTi", serif';
   ctx.fillStyle = "#f7e6bb";
-  ctx.fillText("给 " + (toInput.value.trim() || "你"), 600, 300, 1000);
+  const centerText = messageInput.value.trim() || "圣诞快乐";
+  ctx.fillText(centerText, 600, 300, 1000);
   if ("letterSpacing" in ctx) ctx.letterSpacing = "6px";
   ctx.font = "400 30px Georgia, serif";
   ctx.fillStyle = "rgba(247,241,227,0.72)";
   ctx.fillText(dateInput.value.trim() || "2026.12.25", 600, 392);
-  const from = fromInput.value.trim();
-  if (from) {
-    ctx.fillStyle = "rgba(244,208,137,0.66)";
-    ctx.font = "400 26px Georgia, serif";
-    ctx.fillText("—— " + from, 600, 446, 900);
-  }
   if ("letterSpacing" in ctx) ctx.letterSpacing = "3px";
   ctx.font = "400 20px Georgia, serif";
   ctx.fillStyle = "rgba(244,208,137,0.48)";
@@ -330,7 +317,7 @@ previewBtn.addEventListener("click", localPreview);
 publishBtn.addEventListener("click", publish);
 $("copyBtn").addEventListener("click", copyLink);
 $("closeResult").addEventListener("click", () => resultModal.classList.add("hidden"));
-[toInput, fromInput, dateInput, messageInput].forEach(input => input.addEventListener("change", saveMeta));
+[dateInput, messageInput].forEach(input => input.addEventListener("change", saveMeta));
 
 async function loadLimits() {
   try {

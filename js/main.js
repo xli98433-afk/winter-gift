@@ -90,6 +90,10 @@ let captionGroup;
 let captionSets = [];
 let captionProgress = 0;
 let captionIndex = -1;
+let bloomBase = 1;
+let bloomPulse = 0;
+let ringSprite;
+let ringTime = -1;
 const lookAt = new THREE.Vector3(0, 0.2, 0);
 const cameraPosition = new THREE.Vector3(0, 1.8, 12);
 
@@ -110,6 +114,24 @@ function makeGlowTexture(inner = 1) {
   return texture;
 }
 
+function makeRingTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const g = ctx.createRadialGradient(size / 2, size / 2, size * 0.24, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(255,255,255,0)");
+  g.addColorStop(0.64, "rgba(255,255,255,0)");
+  g.addColorStop(0.74, "rgba(255,240,205,0.85)");
+  g.addColorStop(0.82, "rgba(255,205,130,0.2)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function treePosition(index, total) {
   const t = Math.pow((index + 1) / total, 0.82);
   const y = t * 8 - 4;
@@ -119,7 +141,7 @@ function treePosition(index, total) {
 }
 
 function galaxyPosition(scale = 1) {
-  const radius = (2.4 + Math.pow(Math.random(), 1.7) * 5.4) * scale;
+  const radius = (3.6 + Math.pow(Math.random(), 1.6) * 9.4) * scale;
   const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
   return [
@@ -167,6 +189,7 @@ function buildScene() {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), LOW_POWER ? 0.7 : 0.9, 0.5, 0.9);
+  bloomBase = bloomPass.strength;
   composer.addPass(bloomPass);
 
   focusLight = new THREE.PointLight(0xffd28a, 0, 20);
@@ -174,6 +197,14 @@ function buildScene() {
   scene.add(focusLight);
 
   starGlowTexture = makeGlowTexture(1.2);
+  ringSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeRingTexture(), color: 0xffe7b5, transparent: true, opacity: 0,
+    depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false
+  }));
+  ringSprite.position.set(0, 0.3, 0);
+  ringSprite.scale.setScalar(0.1);
+  ringSprite.visible = false;
+  scene.add(ringSprite);
 }
 
 function buildStars() {
@@ -882,10 +913,28 @@ function onResize() {
   bloomPass.resolution.set(window.innerWidth / 2, window.innerHeight / 2);
 }
 
+function triggerBurst() {
+  bloomPulse = 1.0;
+  const flash = document.getElementById("flash");
+  if (flash) {
+    flash.classList.remove("burst");
+    void flash.offsetWidth;
+    flash.classList.add("burst");
+  }
+  if (ringSprite) {
+    ringTime = 0;
+    ringSprite.visible = true;
+    ringSprite.material.opacity = 0.72;
+    ringSprite.scale.setScalar(2);
+  }
+}
+
 function setMode(mode) {
   if (app.mode === mode) return;
+  const wasTree = app.mode === "tree";
   app.mode = mode;
   document.body.classList.toggle("focus-mode", mode === "focus");
+  if (mode === "galaxy" && wasTree) triggerBurst();
   if (mode === "tree") {
     app.target = 0;
     app.focusIndex = -1;
@@ -964,6 +1013,8 @@ function updatePhotos(dt) {
     card.group.position.y += Math.sin(app.time * 0.9 + card.phase) * 0.012;
     card.group.scale.setScalar(card.scale);
     card.group.lookAt(camera.position);
+    const flare = Math.sin(Math.PI * Math.min(1, Math.max(0, app.progress)));
+    card.group.rotateZ(flare * (card.index % 2 ? 0.22 : -0.22));
     const focusedCard = app.mode === "focus" && app.focusIndex === card.index;
     card.group.visible = app.mode !== "focus" || focusedCard;
     card.hit.visible = !(app.mode === "tree" && card.placeholder);
@@ -986,9 +1037,23 @@ function updateTransforms(dt) {
     const local = Math.min(1, Math.max(0, (progress - particles.delays[i] * 0.5) / 0.62));
     const eased = local * local * (3 - 2 * local);
     const breathe = idle ? Math.sin(time * particles.speeds[i] + particles.phases[i]) * 0.02 : 0;
-    pos[i3] = particles.tree[i3] + (particles.galaxy[i3] - particles.tree[i3]) * eased;
-    pos[i3 + 1] = particles.tree[i3 + 1] + (particles.galaxy[i3 + 1] - particles.tree[i3 + 1]) * eased + breathe;
-    pos[i3 + 2] = particles.tree[i3 + 2] + (particles.galaxy[i3 + 2] - particles.tree[i3 + 2]) * eased;
+    let x = particles.tree[i3] + (particles.galaxy[i3] - particles.tree[i3]) * eased;
+    let y = particles.tree[i3 + 1] + (particles.galaxy[i3 + 1] - particles.tree[i3 + 1]) * eased + breathe;
+    let z = particles.tree[i3 + 2] + (particles.galaxy[i3 + 2] - particles.tree[i3 + 2]) * eased;
+    const swell = Math.sin(Math.PI * eased);
+    if (swell > 0.001) {
+      const radius = Math.hypot(x, z);
+      if (radius > 0.01) {
+        const angle = Math.atan2(z, x) + swell * (0.55 + (i % 9) * 0.09);
+        const grown = radius * (1 + swell * 0.5);
+        x = Math.cos(angle) * grown;
+        z = Math.sin(angle) * grown;
+      }
+      y += swell * Math.sin(i * 0.7) * 0.7;
+    }
+    pos[i3] = x;
+    pos[i3 + 1] = y;
+    pos[i3 + 2] = z;
   }
   particleSystem.geometry.attributes.position.needsUpdate = true;
   particleSystem.material.opacity = focusDim;
@@ -1000,9 +1065,22 @@ function updateTransforms(dt) {
     const local = Math.min(1, Math.max(0, (progress - spark.delays[i] * 0.5) / 0.62));
     const eased = local * local * (3 - 2 * local);
     const source = Math.floor(i * (COUNT.particles / spark.count)) % COUNT.particles;
-    sparkPos[i3] = spark.tree[source * 3] + (spark.galaxy[source * 3] - spark.tree[source * 3]) * eased;
-    sparkPos[i3 + 1] = spark.tree[source * 3 + 1] + (spark.galaxy[source * 3 + 1] - spark.tree[source * 3 + 1]) * eased;
-    sparkPos[i3 + 2] = spark.tree[source * 3 + 2] + (spark.galaxy[source * 3 + 2] - spark.tree[source * 3 + 2]) * eased;
+    let x = spark.tree[source * 3] + (spark.galaxy[source * 3] - spark.tree[source * 3]) * eased;
+    let y = spark.tree[source * 3 + 1] + (spark.galaxy[source * 3 + 1] - spark.tree[source * 3 + 1]) * eased;
+    let z = spark.tree[source * 3 + 2] + (spark.galaxy[source * 3 + 2] - spark.tree[source * 3 + 2]) * eased;
+    const swell = Math.sin(Math.PI * eased);
+    if (swell > 0.001) {
+      const radius = Math.hypot(x, z);
+      if (radius > 0.01) {
+        const angle = Math.atan2(z, x) + swell * (0.5 + (i % 6) * 0.1);
+        const grown = radius * (1 + swell * 0.45);
+        x = Math.cos(angle) * grown;
+        z = Math.sin(angle) * grown;
+      }
+    }
+    sparkPos[i3] = x;
+    sparkPos[i3 + 1] = y;
+    sparkPos[i3 + 2] = z;
   }
   sparkleSystem.geometry.attributes.position.needsUpdate = true;
   sparkleSystem.material.opacity = 0.7 * focusDim;
@@ -1114,7 +1192,7 @@ function updateCamera(dt) {
     targetPos.set(0, 0.35, 9.8);
     targetLook.copy(FOCUS_POS);
   } else if (app.mode === "galaxy") {
-    const radius = camera.aspect > 1.15 ? 20 : (LOW_POWER ? 17 : 16.5);
+    const radius = camera.aspect > 1.15 ? 24 : (LOW_POWER ? 20.5 : 20);
     const phi = cameraOrbit.phi;
     targetPos.set(
       radius * Math.sin(phi) * Math.sin(cameraOrbit.theta),
@@ -1161,7 +1239,7 @@ function loop(now) {
   if (app.mode === "tree") {
     app.progress = Math.max(0, app.progress - dt / 1.4);
   } else {
-    app.progress = Math.min(1, app.progress + dt / 1.7);
+    app.progress = Math.min(1, app.progress + dt / 2.0);
   }
 
   pointer.x += (pointer.tx - pointer.x) * 0.05;
@@ -1175,6 +1253,26 @@ function loop(now) {
   updateSnow(dt);
 
   if (starField) starField.rotation.y += dt * 0.004;
+
+  if (ringTime >= 0 && ringSprite) {
+    ringTime += dt;
+    const p = ringTime / 1.15;
+    if (p >= 1) {
+      ringTime = -1;
+      ringSprite.visible = false;
+    } else {
+      ringSprite.visible = true;
+      ringSprite.scale.setScalar(3 + p * 65);
+      ringSprite.material.opacity = (1 - p) * 0.72;
+    }
+  }
+
+  if (bloomPulse > 0.001) {
+    bloomPulse *= Math.exp(-dt * 3.2);
+  } else {
+    bloomPulse = 0;
+  }
+  if (bloomPass) bloomPass.strength = bloomBase + bloomPulse;
 
   composer.render();
 }
