@@ -34,16 +34,6 @@
   #stage { position: fixed; inset: 0; cursor: grab; }
   #stage:active { cursor: grabbing; }
   #stage canvas { display: block; }
-  #flash {
-    position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: 0;
-    background: radial-gradient(circle at 50% 46%, rgba(255,241,205,0.95), rgba(244,208,137,0.4) 32%, transparent 66%);
-  }
-  #flash.burst { animation: burst 0.95s ease-out; }
-  @keyframes burst {
-    0% { opacity: 0; transform: scale(0.6); }
-    14% { opacity: 0.9; }
-    100% { opacity: 0; transform: scale(1.25); }
-  }
   .vignette {
     position: fixed; inset: 0; pointer-events: none; z-index: 2;
     background:
@@ -216,7 +206,6 @@
 <body>
 <div id="stage"></div>
 <div class="vignette"></div>
-<div id="flash"></div>
 
 <header class="topbar">
   <h1>MERRY CHRISTMAS</h1>
