@@ -11,18 +11,39 @@ const PARAMS = {
 };
 const COARSE = window.matchMedia("(pointer: coarse)").matches;
 const SMALL = window.matchMedia("(max-width: 768px)").matches;
-const LOW_POWER = SMALL || COARSE || (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+const CORES = navigator.hardwareConcurrency || 8;
+const MEMORY = navigator.deviceMemory || 8;
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const DEMO = QUERY.get("demo") === "1";
+const DEBUG_START = QUERY.get("debug") === "1";
+
+const QUALITY_TIERS = {
+  high: { particles: 9000, sparkles: 1500, ornaments: 230, ribbon: 180, snow: 900, stars: 2200, dpr: 2, bloom: 0.95 },
+  medium: { particles: 6400, sparkles: 1000, ornaments: 170, ribbon: 140, snow: 650, stars: 1600, dpr: 1.5, bloom: 0.85 },
+  low: { particles: 4200, sparkles: 700, ornaments: 130, ribbon: 110, snow: 420, stars: 1100, dpr: 1.25, bloom: 0.72 }
+};
+
+function detectQuality() {
+  const forced = QUERY.get("quality");
+  if (forced && Object.prototype.hasOwnProperty.call(QUALITY_TIERS, forced)) return forced;
+  if (COARSE && (SMALL || CORES <= 4 || MEMORY <= 4)) return "low";
+  if (COARSE || CORES <= 4 || MEMORY <= 4) return "medium";
+  return "high";
+}
+
+const QUALITY = detectQuality();
+const TIER = QUALITY_TIERS[QUALITY];
+const LOW_POWER = QUALITY !== "high";
 
 const COUNT = {
-  particles: LOW_POWER ? 4200 : 9000,
-  sparkles: LOW_POWER ? 700 : 1500,
-  ornaments: LOW_POWER ? 130 : 230,
+  particles: TIER.particles,
+  sparkles: TIER.sparkles,
+  ornaments: TIER.ornaments,
   gifts: 15,
-  ribbon: LOW_POWER ? 110 : 180,
+  ribbon: TIER.ribbon,
   photos: 12,
-  snow: LOW_POWER ? 420 : 900,
-  stars: LOW_POWER ? 1100 : 2200
+  snow: TIER.snow,
+  stars: TIER.stars
 };
 
 const PALETTE = [0xffcf7a, 0xffcf7a, 0xffe2a6, 0xffd88a, 0xffc35c, 0xfff6e2, 0xffffff];
@@ -77,6 +98,17 @@ function toast(text) {
   toastEl.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+
+let debugEnabled = DEBUG_START;
+let gestureDebug = "—";
+
+function setDebug(text) {
+  gestureDebug = text;
+  const el = document.getElementById("debug");
+  if (!el) return;
+  el.textContent = "quality " + QUALITY + "\n" + text;
+  el.classList.toggle("hidden", !debugEnabled);
 }
 
 let renderer, scene, camera, composer, bloomPass;
@@ -147,7 +179,7 @@ function ribbonTreePosition(index, total) {
 
 function buildRenderer() {
   renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: "high-performance", preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TIER.dpr));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -166,7 +198,7 @@ function buildScene() {
 
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), LOW_POWER ? 0.7 : 0.9, 0.5, 0.9);
+  bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), TIER.bloom, 0.5, 0.9);
   composer.addPass(bloomPass);
 
   focusLight = new THREE.PointLight(0xffd28a, 0, 20);
@@ -446,6 +478,28 @@ function makeWhiteTexture() {
   return texture;
 }
 
+function makeDemoTexture(index) {
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const palettes = [["#e8455f", "#ffb3c1"], ["#2f6fb5", "#8fd3ff"], ["#b03a8f", "#ffc2e8"], ["#b07a12", "#ffe08a"]];
+  const pair = palettes[index % palettes.length];
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, pair[0]);
+  gradient.addColorStop(1, pair[1]);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.font = "bold 64px Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("MEMORY", size / 2, size / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function photoTreePosition(index, total) {
   const t = (index + 0.5) / total;
   const y = t * 6.4 - 3.2 + 0.4;
@@ -508,6 +562,12 @@ function buildPhotos() {
     card.userData.data = data;
     group.add(card);
     cards.push(data);
+    if (DEMO && !urls[i]) {
+      photoMaterial.map = makeDemoTexture(i);
+      photoMaterial.color.setHex(0xffffff);
+      photoMaterial.needsUpdate = true;
+      data.placeholder = false;
+    }
     if (urls[i]) {
       textureLoader.load(urls[i], texture => {
         texture.colorSpace = THREE.SRGBColorSpace;
@@ -737,7 +797,7 @@ async function fetchGift(password) {
 }
 
 async function loadGift() {
-  if (!PARAMS.id && !PARAMS.preview) {
+  if (!PARAMS.id && !PARAMS.preview && !DEMO) {
     location.replace("create.html");
     return;
   }
@@ -797,6 +857,22 @@ async function loadGift() {
   if (signature) signature.textContent = GIFT.from ? "—— " + GIFT.from : "";
 }
 
+
+function startDemo() {
+  document.body.classList.add("demo");
+  const run = () => {
+    setMode("tree");
+    setTimeout(() => setMode("galaxy"), 2400);
+    setTimeout(() => {
+      const total = photoSystem ? photoSystem.cards.length : 1;
+      focusPhoto(Math.floor(Math.random() * total));
+    }, 5400);
+    setTimeout(() => clearFocus(), 9000);
+    setTimeout(() => setMode("tree"), 10000);
+    setTimeout(run, 13000);
+  };
+  run();
+}
 
 function buildAll() {
   buildRenderer();
@@ -868,6 +944,7 @@ function onResize() {
   if (!renderer) return;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TIER.dpr));
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
   bloomPass.resolution.set(window.innerWidth / 2, window.innerHeight / 2);
@@ -1185,6 +1262,12 @@ function bindUI() {
     else { music.start(); $("soundBtn").classList.remove("off"); }
   });
   $("camBtn").addEventListener("click", startGestures);
+  window.addEventListener("keydown", event => {
+    if (event.key === "d" || event.key === "D") {
+      debugEnabled = !debugEnabled;
+      setDebug(gestureDebug);
+    }
+  });
 }
 
 function coverTexture(texture, targetAspect) {
@@ -1263,7 +1346,72 @@ function bindPointer() {
 
 function takeShot() {
   composer.render();
-  $("shotImg").src = renderer.domElement.toDataURL("image/png");
+  const source = renderer.domElement;
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(source, 0, 0);
+  const w = canvas.width;
+  const h = canvas.height;
+  const topShade = ctx.createLinearGradient(0, 0, 0, h * 0.26);
+  topShade.addColorStop(0, "rgba(3,2,5,0.62)");
+  topShade.addColorStop(1, "rgba(3,2,5,0)");
+  ctx.fillStyle = topShade;
+  ctx.fillRect(0, 0, w, h * 0.26);
+  const bottomShade = ctx.createLinearGradient(0, h * 0.78, 0, h);
+  bottomShade.addColorStop(0, "rgba(3,2,5,0)");
+  bottomShade.addColorStop(1, "rgba(3,2,5,0.9)");
+  ctx.fillStyle = bottomShade;
+  ctx.fillRect(0, h * 0.78, w, h * 0.22);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const titleSize = Math.max(18, Math.round(w * 0.04));
+  ctx.fillStyle = "#f4d089";
+  ctx.font = "400 " + titleSize + 'px Georgia, "Times New Roman", serif';
+  if ("letterSpacing" in ctx) ctx.letterSpacing = Math.round(titleSize * 0.22) + "px";
+  ctx.fillText("MERRY CHRISTMAS", w / 2, h * 0.075);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  const parts = [];
+  if (GIFT.to) parts.push("给 " + GIFT.to);
+  if (GIFT.date) parts.push(GIFT.date);
+  if (parts.length || GIFT.from) {
+    const bandW = w * 0.62;
+    const bandH = h * 0.085;
+    const bandX = (w - bandW) / 2;
+    const bandY = h * 0.855;
+    ctx.fillStyle = "rgba(3,2,5,0.55)";
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bandX, bandY, bandW, bandH, bandH * 0.24);
+    else ctx.rect(bandX, bandY, bandW, bandH);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(244,208,137,0.18)";
+    ctx.lineWidth = Math.max(1, w * 0.001);
+    ctx.stroke();
+    if (parts.length && GIFT.from) {
+      ctx.font = "400 " + Math.round(titleSize * 0.44) + 'px "Songti SC", "STSong", serif';
+      ctx.fillStyle = "rgba(247,241,227,0.85)";
+      ctx.fillText(parts.join(" · "), w / 2, bandY + bandH * 0.34);
+      ctx.font = "400 " + Math.round(titleSize * 0.38) + 'px "Songti SC", "STSong", serif';
+      ctx.fillStyle = "rgba(244,208,137,0.75)";
+      ctx.fillText("—— " + GIFT.from, w / 2, bandY + bandH * 0.68);
+    } else if (parts.length) {
+      ctx.font = "400 " + Math.round(titleSize * 0.44) + 'px "Songti SC", "STSong", serif';
+      ctx.fillStyle = "rgba(247,241,227,0.85)";
+      ctx.fillText(parts.join(" · "), w / 2, bandY + bandH * 0.5);
+    } else {
+      ctx.font = "400 " + Math.round(titleSize * 0.38) + 'px "Songti SC", "STSong", serif';
+      ctx.fillStyle = "rgba(244,208,137,0.75)";
+      ctx.fillText("—— " + GIFT.from, w / 2, bandY + bandH * 0.5);
+    }
+  }
+  ctx.font = "400 " + Math.max(8, Math.round(w * 0.012)) + "px Georgia, serif";
+  ctx.fillStyle = "rgba(247,241,227,0.38)";
+  ctx.fillText("winter-gift.pages.dev", w / 2, h * 0.975);
+  ctx.strokeStyle = "rgba(244,208,137,0.28)";
+  ctx.lineWidth = Math.max(1, w * 0.0015);
+  ctx.strokeRect(w * 0.02, h * 0.02, w * 0.96, h * 0.96);
+  $("shotImg").src = canvas.toDataURL("image/png");
   $("shotModal").classList.remove("hidden");
 }
 
@@ -1476,15 +1624,35 @@ async function startGestures() {
     const marks = results.multiHandLandmarks;
     if (!marks || !marks.length) {
       hand.active = false;
+      setDebug("—");
       state.textContent = "手势已开启 · 把手放进画面";
       return;
     }
-    hand.active = true;
     const lm = marks[0];
-    hand.x = 1 - lm[9].x;
-    hand.y = lm[9].y;
-    const spread = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
-    if (spread < 0.06) {
+    const wrist = lm[0];
+    const middle = lm[9];
+    const handSize = Math.hypot(middle.x - wrist.x, middle.y - wrist.y);
+    const tips = [lm[8], lm[12], lm[16], lm[20]];
+    const avgTip = tips.reduce((sum, tip) => sum + Math.hypot(tip.x - wrist.x, tip.y - wrist.y), 0) / tips.length;
+    const extension = avgTip / (handSize || 1);
+    const pinch = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y) / (handSize || 1);
+    setDebug("size " + handSize.toFixed(3) + " · ext " + extension.toFixed(2) + " · pinch " + pinch.toFixed(2));
+    if (handSize < 0.02) {
+      hand.active = false;
+      state.textContent = "手势已开启 · 手离得太远";
+      return;
+    }
+    hand.active = true;
+    hand.x = 1 - middle.x;
+    hand.y = middle.y;
+    if (extension < 1.5) {
+      if (gestureState !== "closed") {
+        gestureState = "closed";
+        if (app.mode === "focus") clearFocus();
+        else if (app.mode !== "tree") setMode("tree");
+      }
+      state.textContent = "手势已开启 · 握拳";
+    } else if (pinch < 0.35) {
       if (gestureState !== "pinch") {
         gestureState = "pinch";
         if (app.mode === "galaxy") {
@@ -1495,19 +1663,15 @@ async function startGestures() {
         }
       }
       state.textContent = "手势已开启 · 捏合";
-      return;
-    }
-    const gesture = spread > 0.28 ? "open" : "closed";
-    if (gesture !== gestureState) {
-      gestureState = gesture;
-      if (gesture === "open" && app.mode === "tree") setMode("galaxy");
-      else if (gesture === "closed") {
-        if (app.mode === "focus") clearFocus();
-        else if (app.mode !== "tree") setMode("tree");
+    } else if (extension > 1.7) {
+      if (gestureState !== "open") {
+        gestureState = "open";
+        if (app.mode === "tree") setMode("galaxy");
       }
+      state.textContent = "手势已开启 · 张开";
+    } else {
+      state.textContent = "手势已开启 · 保持";
     }
-    const labels = { open: "张开手掌", closed: "握拳" };
-    state.textContent = "手势已开启 · " + labels[gesture];
   });
   handsInstance = hands;
   const processFrame = async () => {
@@ -1531,9 +1695,12 @@ function stopGestures() {
   document.querySelectorAll("video").forEach(video => video.remove());
   handsInstance = null;
   hand.active = false;
+  setDebug("—");
   updateHint();
 }
 
 await loadGift();
 try { buildAll(); } catch (error) { const loader = document.getElementById('loader'); loader.querySelector('p').textContent = '浏览器不支持 WebGL，换一个浏览器试试'; console.error(error); }
 updateHint();
+setDebug("—");
+if (DEMO) startDemo();
